@@ -4,7 +4,7 @@ import { SkSiteS3CdkStack } from '../lib/sk-site-s3-cdk-stack';
 
 /**
  * This stack relies on getting the domain name from CDK context.
- * Use 'cdk synth -c domain=stephenkrawczyk.com -c accountId=1234567890'
+ * Use 'cdk synth -c domain=stephenkrawczyk.com -c accountId=1234567890 -c emailAddr=me@example.com'
  * Or add the following to cdk.json:
  * {
  *   "context": {
@@ -18,7 +18,9 @@ class SKSiteStack extends cdk.Stack {
       super(parent, name, props);
 
       new SkSiteS3CdkStack(this, 'Site', {
-        domainName: this.node.tryGetContext('domain')
+        domainName: this.node.tryGetContext('domain'),
+        emailAddr: this.node.tryGetContext('emailAddr'),
+        captchaSecret: this.node.tryGetContext('captchaSecret')
       });
     }
 }

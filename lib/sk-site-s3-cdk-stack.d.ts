@@ -3,6 +3,8 @@ import { Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 export interface SkSiteS3CdkProps {
     domainName: string;
+    emailAddr: string;
+    captchaSecret: string;
 }
 /**
  * Static site infrastructure, which deploys site content to an S3 bucket.

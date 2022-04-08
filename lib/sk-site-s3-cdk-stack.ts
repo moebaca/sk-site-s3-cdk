@@ -1,19 +1,27 @@
 #!/usr/bin/env node
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { Bucket, BlockPublicAccess } from 'aws-cdk-lib/aws-s3';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
-import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import { S3Origin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as customResources from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 var shell = require('shelljs');
 
 export interface SkSiteS3CdkProps {
   domainName: string;
+  emailAddr: string;
+  captchaSecret: string;
 }
 
 /**
@@ -26,6 +34,10 @@ export class SkSiteS3CdkStack extends Construct {
   constructor(parent: Stack, name: string, props: SkSiteS3CdkProps) {
     super(parent, name);
 
+    const domainName: string = props.domainName;
+    const emailAddr: string = props.emailAddr;
+    const captchaSecret: string = props.captchaSecret;
+
     if (!shell.which('git')) {
         shell.echo('Sorry, this deployment requires git installed on the local machine.');
         shell.exit(1);
@@ -35,35 +47,23 @@ export class SkSiteS3CdkStack extends Construct {
         shell.exec('git clone https://github.com/moebaca/stephen-krawczyk-site.git');
     }
 
-    const zone = route53.HostedZone.fromLookup(this, 'Zone', { domainName: props.domainName });
-    const siteDomain = props.domainName;
-    const cloudfrontOAI = new cloudfront.OriginAccessIdentity(this, 'cloudfront-OAI', {
+    // Requires you own the domain name passed as param and hosted zone exists in R53
+    const zone: route53.IHostedZone = route53.HostedZone.fromLookup(this, 'Zone', { domainName: domainName });
+    const cloudfrontOAI: cloudfront.OriginAccessIdentity = new cloudfront.OriginAccessIdentity(this, 'cloudfront-OAI', {
       comment: `OAI for ${name}`
     });
+    new CfnOutput(this, 'Site', { value: 'https://' + domainName });
 
-    new CfnOutput(this, 'Site', { value: 'https://' + siteDomain });
-
-    // Content bucket
-    const siteBucket = new s3.Bucket(this, 'SiteBucket', {
-      bucketName: siteDomain,
+    // S3 site content bucket
+    const siteBucket: Bucket = new Bucket(this, 'SiteBucket', {
+      bucketName: domainName,
       publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-
-      /**
-       * The default removal policy is RETAIN, which means that cdk destroy will not attempt to delete
-       * the new bucket, and it will remain in your account until manually deleted. By setting the policy to
-       * DESTROY, cdk destroy will attempt to delete the bucket, but will error if the bucket is not empty.
-       */
-      removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
-
-      /**
-       * For sample purposes only, if you create an S3 bucket then populate it, stack destruction fails.  This
-       * setting will enable full cleanup of the demo.
-       */
-      autoDeleteObjects: true, // NOT recommended for production code
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
     });
 
-    // Grant access to cloudfront
+    // Grant S3 bucket access to CloudFront
     siteBucket.addToResourcePolicy(new iam.PolicyStatement({
       actions: ['s3:GetObject'],
       resources: [siteBucket.arnForObjects('*')],
@@ -71,25 +71,81 @@ export class SkSiteS3CdkStack extends Construct {
     }));
     new CfnOutput(this, 'Bucket', { value: siteBucket.bucketName });
 
-    // TLS certificate
-    const certificate = new acm.DnsValidatedCertificate(this, 'SiteCertificate', {
-      domainName: siteDomain,
+    // TLS certificate for use with website
+    const certificate: acm.DnsValidatedCertificate = new acm.DnsValidatedCertificate(this, 'SiteCertificate', {
+      domainName: domainName,
       subjectAlternativeNames: [
-        '*.' + siteDomain
+        '*.' + domainName
       ],
       hostedZone: zone,
-      region: 'us-east-1', // Cloudfront only checks this region for certificates.
+      region: 'us-east-1', 
     });
-    new CfnOutput(this, 'Certificate', { value: certificate.certificateArn });
-
+    new CfnOutput(this, 'Certificate', { value: certificate.certificateArn });    
     
-    // CloudFront distribution
-    const distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
+    // Create new SNS Topic
+    const topic: sns.Topic = new sns.Topic(this, `ContactSNSTopic`, {displayName: 'SK Website Contact Form Entry'});
+
+    // Creates a parameter in SSM Parameter Store which is required in the Lambda JS code
+    const ssmTopicParam: ssm.StringParameter = new ssm.StringParameter(this, 'SKSiteSNSTopicARN', {
+      parameterName: '/sksite/sns/contact-form-topic-arn',
+      description: 'SNS Topic ARN for contact form SNS Topic',
+      stringValue: topic.topicArn,
+      type: ssm.ParameterType.STRING
+    });
+
+    // Creates a parameter in SSM Parameter Store which is required in the Lambda JS code
+    const captchaSSMPath: string = '/sksite/captcha-secret-key';
+    const ssmCaptchaParam: ssm.StringParameter = new ssm.StringParameter(this, 'SKSiteCAPTCHASecret', {
+      parameterName: '/sksite/captcha-secret-key',
+      description: 'Captcha Secret Key',
+      stringValue: captchaSecret,
+      type: ssm.ParameterType.STRING
+    });
+
+    // Required for SecureString
+    new customResources.AwsCustomResource(this, 'CAPTCHASecureString', {
+      policy: customResources.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: customResources.AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
+      onCreate: {
+        service: 'SSM',
+        action: 'putParameter',
+        parameters: {
+          Name: '/sksite/captcha-secret-key',
+          Overwrite: true,
+          Type: 'SecureString',
+          Value: captchaSecret
+        },
+        physicalResourceId: customResources.PhysicalResourceId.of('/sksite/secure-af'),
+      }
+    });      
+
+    // Add email subscription to SNS Topic
+    topic.addSubscription(new subs.EmailSubscription(emailAddr));
+
+    // Policy attached to Lambda Execution Role to allow SSM + SNS interaction in JS code
+    const lambdaPolicyStatement: PolicyStatement = new PolicyStatement({
+      resources: [topic.topicArn, ssmTopicParam.parameterArn, ssmCaptchaParam.parameterArn],
+      actions: ['sns:Publish', 'ssm:GetParameter'] 
+    });
+
+    // Lambda@Edge function needed for the Contact Form submission processing
+    const edgeFunc: cloudfront.experimental.EdgeFunction = 
+      new cloudfront.experimental.EdgeFunction(this, 'ContactFormFunction', {
+        runtime: lambda.Runtime.NODEJS_14_X,
+        handler: 'index.handler',
+        code: lambda.Code.fromAsset('assets'),
+        initialPolicy: [lambdaPolicyStatement]
+    });
+
+    // CloudFront distribution instantiation with added Lambda&Edge behavior
+    const s3Origin: S3Origin = new S3Origin(siteBucket, {originAccessIdentity: cloudfrontOAI});
+    const distribution: cloudfront.Distribution = new cloudfront.Distribution(this, 'SiteDistribution', {
       certificate: certificate,
       defaultRootObject: "index.html",
       domainNames: [
-        siteDomain, 
-        '*.' + siteDomain // Allow all sub-domains
+        domainName, 
+        '*.' + domainName // Allow all sub-domains
       ],
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       errorResponses:[
@@ -101,25 +157,40 @@ export class SkSiteS3CdkStack extends Construct {
         }
       ],
       defaultBehavior: {
-        origin: new cloudfront_origins.S3Origin(siteBucket, {originAccessIdentity: cloudfrontOAI}),
+        origin: s3Origin,
         compress: true,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      }
-    })
+      },
+      additionalBehaviors: {
+        '/submitForm': {
+          origin: s3Origin,
+          edgeLambdas: [
+            {
+              functionVersion: edgeFunc.currentVersion,
+              eventType: cloudfront.LambdaEdgeEventType.VIEWER_REQUEST,
+              includeBody: true
+            }
+          ],                      
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
+      },
+      geoRestriction: cloudfront.GeoRestriction.denylist('RU', 'SG', 'AE')
+    });
 
     new CfnOutput(this, 'DistributionId', { value: distribution.distributionId });
 
     // Route53 alias record for the CloudFront distribution
-    const apexRecord = new route53.ARecord(this, 'SiteAliasRecord', {
-      recordName: siteDomain,
+    const apexRecord: route53.ARecord = new route53.ARecord(this, 'SiteAliasRecord', {
+      recordName: domainName,
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
       zone
     });
 
     // Route53 alias record for the CloudFront distribution
     new route53.ARecord(this, 'WWWApexRecordAlias', {
-        recordName: 'www.' + siteDomain,
+        recordName: 'www.' + domainName,
         target: route53.RecordTarget.fromAlias(new targets.Route53RecordTarget(apexRecord)),
         zone
     });
