@@ -25,10 +25,10 @@ export interface SkSiteS3CdkProps {
 }
 
 /**
- * Static site infrastructure, which deploys site content to an S3 bucket.
+ * Static site infrastructure, which deploys site content to an S3 bucket origin fronted by CloudFront.
  *
- * The site redirects from HTTP to HTTPS, using a CloudFront distribution,
- * Route53 alias record, and ACM certificate.
+ * The site redirects from HTTP to HTTPS, using a CloudFront distribution, Route53 alias record, 
+ * and ACM certificate. Contact form logic infrastrucure is also provided using SNS, Lambda&Edge and SSM.
  */
 export class SkSiteS3CdkStack extends Construct {
   constructor(parent: Stack, name: string, props: SkSiteS3CdkProps) {
@@ -116,7 +116,7 @@ export class SkSiteS3CdkStack extends Construct {
           Type: 'SecureString',
           Value: captchaSecret
         },
-        physicalResourceId: customResources.PhysicalResourceId.of('/sksite/secure-af'),
+        physicalResourceId: customResources.PhysicalResourceId.of('/sksite/captcha-secret-key'),
       }
     });      
 
