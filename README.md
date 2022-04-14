@@ -1,6 +1,9 @@
-# Stephen Krawczyk's Biographical Website - AWS CDK Deployment
+# Stephen Krawczyk's Biographical Website - AWS CDK
 
 This repo allows for repeatedly deploying *Stephen Krawczyk's Biographical Website* with very little manual prerequisites. The site leverages CloudFront's global distributed network of edge locations as well as Lambda&Edge for contact form submission logic. Due to being entirely serverless and leveraging free tiers the project costs only pennies a month compared to when it was originally running in a Laravel stack on Heroku. 
+
+## Architecture Diagram
+![sksite-s3 architecture diagram](sksite-s3-diagram.png)
 
 ## Getting started
 As previously mentioned the amount of pre-requisites to get up and running are very minimal thanks to the CDK handling the large majority of heavy lifting. In the future I'd like to automate the reCAPTCHA site key injection into the contact.html, but the other pre-reqs are pretty much unavoidable and need to be done manually.
@@ -76,6 +79,3 @@ you should try again every 30 minutes or so until you have seen the destroy succ
 ```bash
 $ cdk destroy -c domain=stephenkrawczyk.com -c accountId=1234567890 -c emailAddr=me@example.com -c captchaSecret=xyz
 ```
-
-## Architecture Diagram
-![sksite-s3 architecture diagram](sksite-s3-diagram.png)
