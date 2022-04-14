@@ -4,7 +4,7 @@ import { SkSiteS3CdkStack } from '../lib/sk-site-s3-cdk-stack';
 
 /**
  * This stack relies on getting the domain name from CDK context.
- * Use 'cdk synth -c domain=stephenkrawczyk.com -c accountId=1234567890 -c emailAddr=me@example.com'
+ * Use 'cdk synth -c domain=stephenkrawczyk.com -c accountId=1234567890 -c emailAddr=me@example.com -c captchaSecret=xyz'
  * Or add the following to cdk.json:
  * {
  *   "context": {

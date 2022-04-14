@@ -38,6 +38,9 @@ export class SkSiteS3CdkStack extends Construct {
     const emailAddr: string = props.emailAddr;
     const captchaSecret: string = props.captchaSecret;
 
+    // Current hack - I want to be able to use stephen-krawczyk-site in multiple CDK applications for fun
+    // and therefore I am not bundling the assets into this CDK project. The code below clones the stephen-krawczyk-site
+    // HTML assets for upload to S3.
     if (!shell.which('git')) {
         shell.echo('Sorry, this deployment requires git installed on the local machine.');
         shell.exit(1);
@@ -49,6 +52,8 @@ export class SkSiteS3CdkStack extends Construct {
 
     // Requires you own the domain name passed as param and hosted zone exists in R53
     const zone: route53.IHostedZone = route53.HostedZone.fromLookup(this, 'Zone', { domainName: domainName });
+
+    // Create Origin Access Identity
     const cloudfrontOAI: cloudfront.OriginAccessIdentity = new cloudfront.OriginAccessIdentity(this, 'cloudfront-OAI', {
       comment: `OAI for ${name}`
     });
@@ -96,7 +101,7 @@ export class SkSiteS3CdkStack extends Construct {
     // Creates a parameter in SSM Parameter Store which is required in the Lambda JS code
     const captchaSSMPath: string = '/sksite/captcha-secret-key';
     const ssmCaptchaParam: ssm.StringParameter = new ssm.StringParameter(this, 'SKSiteCAPTCHASecret', {
-      parameterName: '/sksite/captcha-secret-key',
+      parameterName: captchaSSMPath,
       description: 'Captcha Secret Key',
       stringValue: captchaSecret,
       type: ssm.ParameterType.STRING
@@ -111,12 +116,12 @@ export class SkSiteS3CdkStack extends Construct {
         service: 'SSM',
         action: 'putParameter',
         parameters: {
-          Name: '/sksite/captcha-secret-key',
+          Name: captchaSSMPath,
           Overwrite: true,
           Type: 'SecureString',
           Value: captchaSecret
         },
-        physicalResourceId: customResources.PhysicalResourceId.of('/sksite/captcha-secret-key'),
+        physicalResourceId: customResources.PhysicalResourceId.of(captchaSSMPath),
       }
     });      
 
