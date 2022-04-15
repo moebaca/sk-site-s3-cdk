@@ -58,7 +58,7 @@ $ cdk bootstrap --cloudformation-execution-policies arn:aws:iam::aws:policy/Admi
 
 ### Deploy
 
-You should now have met all the conditions to safely deploy the projec to your AWS account. Run the below command with the required parameters.
+You should now have met all the conditions to safely deploy the project to your AWS account. Run the below command with the required parameters.
 - domain = The domain you registered in the same account with Route53 (eg. stephenkrawczyk.com)
 - accountId = The account id needs to be explicitly passed as a parameter as a requirement for hosted-zone lookups
 - emailAddr = This is the email address you want the contact form to send user input to
