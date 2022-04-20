@@ -5,6 +5,11 @@ This repo allows for repeatedly deploying *Stephen Krawczyk's Biographical Websi
 ## Architecture Diagram
 ![sksite-s3 architecture diagram](sksite-s3-diagram.png)
 
+## TODO
+- Split out sk-site-s3-cdk-stack.ts into more readable functions instead of lumping everything into the constructor
+- Setup CDK Pipelines for CI/CD on repo update
+- Create CDK assertion tests that run during CI stage
+
 ## Getting started
 As previously mentioned the amount of pre-requisites to get up and running are very minimal thanks to the CDK handling the large majority of heavy lifting. In the future I'd like to automate the reCAPTCHA site key injection into the contact.html, but the other pre-reqs are pretty much unavoidable and need to be done manually.
 ### Manual pre-reqs
