@@ -8,7 +8,6 @@ This repo allows for repeatedly deploying *Stephen Krawczyk's Biographical Websi
 ## TODO
 - Split out sk-site-s3-cdk-stack.ts into more readable functions instead of lumping everything into the constructor
 - Setup CDK Pipelines for CI/CD on repo update
-- Create CDK assertion tests that run during CI stage
 
 ## Getting started
 As previously mentioned the amount of pre-requisites to get up and running are very minimal thanks to the CDK handling the large majority of heavy lifting. In the future I'd like to automate the reCAPTCHA site key injection into the contact.html, but the other pre-reqs are pretty much unavoidable and need to be done manually.
@@ -60,6 +59,16 @@ know whih environment to bootstrap based on your .aws/credentials file
 ```bash
 $ cdk bootstrap --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess
 ```
+### Run unit tests
+To ensure a consistent experience intended by the developer ensure all tests are passing before deploying. 
+
+Run the below command:
+```bash
+$ npm run test
+```
+
+Output should look similar to this though the number and description of test cases may vary (SS taken 4/26/2022):
+![test-cases.png](test-cases.png)
 
 ### Deploy
 
