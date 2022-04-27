@@ -1,0 +1,664 @@
+Resources:
+  SitecloudfrontOAID035EFA2:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: OAI for Site
+    Metadata:
+      aws:cdk:path: SKSite/Site/cloudfront-OAI/Resource
+  SiteSiteBucket7CA177D5:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: stephenkrawczyk.com
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+        - Key: aws-cdk:cr-owned:0d595785
+          Value: "true"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteBucket/Resource
+  SiteSiteBucketPolicy0953BA94:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: SiteSiteBucket7CA177D5
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - SiteSiteBucket7CA177D5
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - SiteSiteBucket7CA177D5
+                        - Arn
+                    - /*
+          - Action: s3:GetObject
+            Effect: Allow
+            Principal:
+              CanonicalUser:
+                Fn::GetAtt:
+                  - SitecloudfrontOAID035EFA2
+                  - S3CanonicalUserId
+            Resource:
+              Fn::Join:
+                - ""
+                - - Fn::GetAtt:
+                      - SiteSiteBucket7CA177D5
+                      - Arn
+                  - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteBucket/Policy/Resource
+  SiteSiteBucketAutoDeleteObjectsCustomResource9F807045:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: SiteSiteBucket7CA177D5
+    DependsOn:
+      - SiteSiteBucketPolicy0953BA94
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteBucket/AutoDeleteObjectsCustomResource/Default
+  SiteSiteCertificateCertificateRequestorFunctionServiceRole8C007149:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteCertificate/CertificateRequestorFunction/ServiceRole/Resource
+  SiteSiteCertificateCertificateRequestorFunctionServiceRoleDefaultPolicyC21DCF52:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - acm:RequestCertificate
+              - acm:DescribeCertificate
+              - acm:DeleteCertificate
+              - acm:AddTagsToCertificate
+            Effect: Allow
+            Resource: "*"
+          - Action: route53:GetChange
+            Effect: Allow
+            Resource: "*"
+          - Action: route53:changeResourceRecordSets
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - :route53:::hostedzone/Z06236522QFY2XTYW7YSE
+        Version: "2012-10-17"
+      PolicyName: SiteSiteCertificateCertificateRequestorFunctionServiceRoleDefaultPolicyC21DCF52
+      Roles:
+        - Ref: SiteSiteCertificateCertificateRequestorFunctionServiceRole8C007149
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteCertificate/CertificateRequestorFunction/ServiceRole/DefaultPolicy/Resource
+  SiteSiteCertificateCertificateRequestorFunctionA1BFEAD8:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: cdedd6632172f845dffdcb60b0ef32d70710bab092ddc86547f614bf0f5c873f.zip
+      Role:
+        Fn::GetAtt:
+          - SiteSiteCertificateCertificateRequestorFunctionServiceRole8C007149
+          - Arn
+      Handler: index.certificateRequestHandler
+      Runtime: nodejs12.x
+      Timeout: 900
+    DependsOn:
+      - SiteSiteCertificateCertificateRequestorFunctionServiceRoleDefaultPolicyC21DCF52
+      - SiteSiteCertificateCertificateRequestorFunctionServiceRole8C007149
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteCertificate/CertificateRequestorFunction/Resource
+      aws:asset:path: asset.cdedd6632172f845dffdcb60b0ef32d70710bab092ddc86547f614bf0f5c873f
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  SiteSiteCertificateCertificateRequestorResource559CE658:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - SiteSiteCertificateCertificateRequestorFunctionA1BFEAD8
+          - Arn
+      DomainName: stephenkrawczyk.com
+      SubjectAlternativeNames:
+        - "*.stephenkrawczyk.com"
+      HostedZoneId: Z06236522QFY2XTYW7YSE
+      Region: us-east-1
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteCertificate/CertificateRequestorResource/Default
+  SiteContactSNSTopicF4FF9F61:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: SK Website Contact Form Entry
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactSNSTopic/Resource
+  SiteContactSNSTopicmoebacahotmailcom4093187C:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn:
+        Ref: SiteContactSNSTopicF4FF9F61
+      Endpoint: moebaca@hotmail.com
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactSNSTopic/moebaca@hotmail.com/Resource
+  SiteSKSiteSNSTopicARNE038BFF5:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Value:
+        Ref: SiteContactSNSTopicF4FF9F61
+      Description: SNS Topic ARN for contact form SNS Topic
+      Name: /sksite/sns/contact-form-topic-arn
+    Metadata:
+      aws:cdk:path: SKSite/Site/SKSiteSNSTopicARN/Resource
+  SiteSKSiteCAPTCHASecretA3B0CEB0:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Value: 6Leeq0MfAAAAAF22nVKZ9BCeXMm0tHh9egcdJA91
+      Description: Captcha Secret Key
+      Name: /sksite/captcha-secret-key
+    Metadata:
+      aws:cdk:path: SKSite/Site/SKSiteCAPTCHASecret/Resource
+  SiteCAPTCHASecureStringCustomResourcePolicy28BC4392:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:PutParameter
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: SiteCAPTCHASecureStringCustomResourcePolicy28BC4392
+      Roles:
+        - Ref: AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
+    Metadata:
+      aws:cdk:path: SKSite/Site/CAPTCHASecureString/CustomResourcePolicy/Resource
+  SiteCAPTCHASecureStringDCD1809D:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - AWS679f53fac002430cb0da5b7982bd22872D164C4C
+          - Arn
+      Create: '{"service":"SSM","action":"putParameter","parameters":{"Name":"/sksite/captcha-secret-key","Overwrite":true,"Type":"SecureString","Value":"6Leeq0MfAAAAAF22nVKZ9BCeXMm0tHh9egcdJA91"},"physicalResourceId":{"id":"/sksite/captcha-secret-key"}}'
+      InstallLatestAwsSdk: true
+    DependsOn:
+      - SiteCAPTCHASecureStringCustomResourcePolicy28BC4392
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: SKSite/Site/CAPTCHASecureString/Resource/Default
+  SiteContactFormFunctionFnServiceRole919AD64B:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: edgelambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactFormFunction/Fn/ServiceRole/Resource
+  SiteContactFormFunctionFnServiceRoleDefaultPolicy6BCC095B:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - sns:Publish
+              - ssm:GetParameter
+            Effect: Allow
+            Resource:
+              - Ref: SiteContactSNSTopicF4FF9F61
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :ssm:us-east-1:362668107338:parameter
+                    - Ref: SiteSKSiteSNSTopicARNE038BFF5
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :ssm:us-east-1:362668107338:parameter
+                    - Ref: SiteSKSiteCAPTCHASecretA3B0CEB0
+        Version: "2012-10-17"
+      PolicyName: SiteContactFormFunctionFnServiceRoleDefaultPolicy6BCC095B
+      Roles:
+        - Ref: SiteContactFormFunctionFnServiceRole919AD64B
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactFormFunction/Fn/ServiceRole/DefaultPolicy/Resource
+  SiteContactFormFunctionFnD94E7722:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: c6397206654d0cb22e85533884a0c0a8ef59606cd8890ef6af01428a76550148.zip
+      Role:
+        Fn::GetAtt:
+          - SiteContactFormFunctionFnServiceRole919AD64B
+          - Arn
+      Handler: index.handler
+      Runtime: nodejs14.x
+    DependsOn:
+      - SiteContactFormFunctionFnServiceRoleDefaultPolicy6BCC095B
+      - SiteContactFormFunctionFnServiceRole919AD64B
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactFormFunction/Fn/Resource
+      aws:asset:path: asset.c6397206654d0cb22e85533884a0c0a8ef59606cd8890ef6af01428a76550148
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  SiteContactFormFunctionFnCurrentVersion613D11D2b90b87ef01195c061bc2daed2a8cb8ff:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName:
+        Ref: SiteContactFormFunctionFnD94E7722
+    Metadata:
+      aws:cdk:path: SKSite/Site/ContactFormFunction/Fn/CurrentVersion/Resource
+  SiteSiteDistribution9DAE84D9:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - stephenkrawczyk.com
+          - "*.stephenkrawczyk.com"
+        CacheBehaviors:
+          - AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            Compress: true
+            LambdaFunctionAssociations:
+              - EventType: viewer-request
+                IncludeBody: true
+                LambdaFunctionARN:
+                  Ref: SiteContactFormFunctionFnCurrentVersion613D11D2b90b87ef01195c061bc2daed2a8cb8ff
+            PathPattern: /submitForm
+            TargetOriginId: SKSiteSiteDistributionOrigin11600D8FB
+            ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 1800
+            ErrorCode: 403
+            ResponseCode: 403
+            ResponsePagePath: /error.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+          TargetOriginId: SKSiteSiteDistributionOrigin11600D8FB
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - DomainName:
+              Fn::GetAtt:
+                - SiteSiteBucket7CA177D5
+                - RegionalDomainName
+            Id: SKSiteSiteDistributionOrigin11600D8FB
+            S3OriginConfig:
+              OriginAccessIdentity:
+                Fn::Join:
+                  - ""
+                  - - origin-access-identity/cloudfront/
+                    - Ref: SitecloudfrontOAID035EFA2
+        Restrictions:
+          GeoRestriction:
+            Locations:
+              - RU
+              - SG
+              - AE
+            RestrictionType: blacklist
+        ViewerCertificate:
+          AcmCertificateArn:
+            Fn::GetAtt:
+              - SiteSiteCertificateCertificateRequestorResource559CE658
+              - Arn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteDistribution/Resource
+  SiteSiteAliasRecord72F93643:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: stephenkrawczyk.com.
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::GetAtt:
+            - SiteSiteDistribution9DAE84D9
+            - DomainName
+        HostedZoneId:
+          Fn::FindInMap:
+            - AWSCloudFrontPartitionHostedZoneIdMap
+            - Ref: AWS::Partition
+            - zoneId
+      HostedZoneId: Z06236522QFY2XTYW7YSE
+    Metadata:
+      aws:cdk:path: SKSite/Site/SiteAliasRecord/Resource
+  SiteWWWApexRecordAlias66E814EC:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: www.stephenkrawczyk.com.
+      Type: A
+      AliasTarget:
+        DNSName:
+          Ref: SiteSiteAliasRecord72F93643
+        HostedZoneId: Z06236522QFY2XTYW7YSE
+      HostedZoneId: Z06236522QFY2XTYW7YSE
+    Metadata:
+      aws:cdk:path: SKSite/Site/WWWApexRecordAlias/Resource
+  SiteDeployWithInvalidationAwsCliLayer2256650C:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: f331b32a8ad8983464106a58e420e7bc7e6341ba2ffb8ac9ad350d7e32845d95.zip
+      Description: /opt/awscli/aws
+    Metadata:
+      aws:cdk:path: SKSite/Site/DeployWithInvalidation/AwsCliLayer/Resource
+      aws:asset:path: asset.f331b32a8ad8983464106a58e420e7bc7e6341ba2ffb8ac9ad350d7e32845d95.zip
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  SiteDeployWithInvalidationCustomResourceF8E74616:
+    Type: Custom::CDKBucketDeployment
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536
+          - Arn
+      SourceBucketNames:
+        - cdk-hnb659fds-assets-362668107338-us-east-1
+      SourceObjectKeys:
+        - 241db289f6705b6149dc56e460ebce2f5bd8561633bb601047117c5c01bc9985.zip
+      DestinationBucketName:
+        Ref: SiteSiteBucket7CA177D5
+      Prune: true
+      DistributionId:
+        Ref: SiteSiteDistribution9DAE84D9
+      DistributionPaths:
+        - /*
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: SKSite/Site/DeployWithInvalidation/CustomResource/Default
+  CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: SKSite/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role
+  CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: 483ae06ed27ef8ca76e011264d772420593a6cfe8544759c306ef3b98c9e25be.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: __entrypoint__.handler
+      Role:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+          - Arn
+      Runtime: nodejs12.x
+      Description:
+        Fn::Join:
+          - ""
+          - - "Lambda function for auto-deleting objects in "
+            - Ref: SiteSiteBucket7CA177D5
+            - " S3 bucket."
+    DependsOn:
+      - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+    Metadata:
+      aws:cdk:path: SKSite/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler
+      aws:asset:path: asset.483ae06ed27ef8ca76e011264d772420593a6cfe8544759c306ef3b98c9e25be
+      aws:asset:property: Code
+  AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: SKSite/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource
+  AWS679f53fac002430cb0da5b7982bd22872D164C4C:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: 39381d2c8b8ec42679de4960c24f0c83c56772cdc2b10b6fc14cd0a99aba42ed.zip
+      Role:
+        Fn::GetAtt:
+          - AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
+          - Arn
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Timeout: 120
+    DependsOn:
+      - AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
+    Metadata:
+      aws:cdk:path: SKSite/AWS679f53fac002430cb0da5b7982bd2287/Resource
+      aws:asset:path: asset.39381d2c8b8ec42679de4960c24f0c83c56772cdc2b10b6fc14cd0a99aba42ed
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: SKSite/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :s3:::cdk-hnb659fds-assets-362668107338-us-east-1
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - :s3:::cdk-hnb659fds-assets-362668107338-us-east-1/*
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - SiteSiteBucket7CA177D5
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - SiteSiteBucket7CA177D5
+                        - Arn
+                    - /*
+          - Action:
+              - cloudfront:GetInvalidation
+              - cloudfront:CreateInvalidation
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      Roles:
+        - Ref: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: SKSite/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-362668107338-us-east-1
+        S3Key: f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da.zip
+      Role:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+          - Arn
+      Handler: index.handler
+      Layers:
+        - Ref: SiteDeployWithInvalidationAwsCliLayer2256650C
+      Runtime: python3.7
+      Timeout: 900
+    DependsOn:
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: SKSite/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource
+      aws:asset:path: asset.f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/21S227bMAz9lr0r2rLrc5qswIANDZKhr4YiMQYbWTJIqV1g+N9HyW4SFH3iOeQRb+JnvfyhP30wL7yw7rTweNDDPhl7UjvgmMmCklgzWB+zO1IMSQ8PhC2GlbXA/MtBSJjOan0M66K5L5p3FfCvB8JOmPH6p2vhPgebMAa1QU6Eh1yJJLrlo+IverjL9gSpxGY0mW30aM9X98wncmcYRmWBEh7RmgSdCaYF0pvAj8ajE5dbX8PKm+7gjB4ufUneC95jaD2kePU8AvGsuoG/zRlo5qNC0+lhFz2UULXXlidU5msGwwyJ9aoY5aD38VwWpadJNheHqAPr4W/s0ZYcE9jnA1vC/rXpWy4vuCt/SjLA1pDpIAHV+q9kVBRzgm+y59UObCRXu61oD2kcC33Iqc/yA5lT7C63UXUzrs3L7cjPt8pWXUNzUEZ74Tdvp3U3viyskSOzHqvKY93hm1Jbis/ops7/mL6XIqMK0YF+4o/Py+96+VXu+IkRF5Tl4DrQu8n+B5GUhYHjAgAA
+    Metadata:
+      aws:cdk:path: SKSite/CDKMetadata/Default
+Outputs:
+  Site11EB06B0:
+    Value: https://stephenkrawczyk.com
+  SiteBucket31996626:
+    Value:
+      Ref: SiteSiteBucket7CA177D5
+  SiteCertificate84D52286:
+    Value:
+      Fn::GetAtt:
+        - SiteSiteCertificateCertificateRequestorResource559CE658
+        - Arn
+  SiteDistributionIdF7E9652D:
+    Value:
+      Ref: SiteSiteDistribution9DAE84D9
+Mappings:
+  AWSCloudFrontPartitionHostedZoneIdMap:
+    aws:
+      zoneId: Z2FDTNDATAQYW2
+    aws-cn:
+      zoneId: Z3RFFRIM2A3IF5
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+Rules:
+  CheckBootstrapVersion:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - - "1"
+                  - "2"
+                  - "3"
+                  - "4"
+                  - "5"
+                - Ref: BootstrapVersion
+        AssertDescription: CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.
+
