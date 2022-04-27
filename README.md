@@ -1,6 +1,14 @@
-# Stephen Krawczyk's Biographical Website - AWS CDK Deployment
+# Stephen Krawczyk's Biographical Website - AWS CDK
 
 This repo allows for repeatedly deploying *Stephen Krawczyk's Biographical Website* with very little manual prerequisites. The site leverages CloudFront's global distributed network of edge locations as well as Lambda&Edge for contact form submission logic. Due to being entirely serverless and leveraging free tiers the project costs only pennies a month compared to when it was originally running in a Laravel stack on Heroku. 
+
+## Architecture Diagram
+![sksite-s3 architecture diagram](sksite-s3-diagram.png)
+
+## TODO
+- Split out sk-site-s3-cdk-stack.ts into more readable functions instead of lumping everything into the constructor
+- Setup CDK Pipelines for CI/CD on repo update
+- Create CDK assertion tests that run during CI stage
 
 ## Getting started
 As previously mentioned the amount of pre-requisites to get up and running are very minimal thanks to the CDK handling the large majority of heavy lifting. In the future I'd like to automate the reCAPTCHA site key injection into the contact.html, but the other pre-reqs are pretty much unavoidable and need to be done manually.
@@ -55,7 +63,7 @@ $ cdk bootstrap --cloudformation-execution-policies arn:aws:iam::aws:policy/Admi
 
 ### Deploy
 
-You should now have met all the conditions to safely deploy the projec to your AWS account. Run the below command with the required parameters.
+You should now have met all the conditions to safely deploy the project to your AWS account. Run the below command with the required parameters.
 - domain = The domain you registered in the same account with Route53 (eg. stephenkrawczyk.com)
 - accountId = The account id needs to be explicitly passed as a parameter as a requirement for hosted-zone lookups
 - emailAddr = This is the email address you want the contact form to send user input to
@@ -76,6 +84,3 @@ you should try again every 30 minutes or so until you have seen the destroy succ
 ```bash
 $ cdk destroy -c domain=stephenkrawczyk.com -c accountId=1234567890 -c emailAddr=me@example.com -c captchaSecret=xyz
 ```
-
-## Architecture Diagram
-![sksite-s3 architecture diagram](sksite-s3-diagram.png)
