@@ -193,7 +193,7 @@ export class SkSiteS3CdkStack extends Construct {
       zone
     });
 
-    // Route53 alias record for the CloudFront distribution
+    // Route53 alias record for site apex
     new route53.ARecord(this, 'WWWApexRecordAlias', {
         recordName: 'www.' + domainName,
         target: route53.RecordTarget.fromAlias(new targets.Route53RecordTarget(apexRecord)),
